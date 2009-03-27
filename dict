@@ -1,0 +1,21 @@
+#!/usr/bin/python
+#coding=utf-8
+import urllib
+import sys
+#import xml.dom.minidom
+#import re
+
+def main():
+	if len(sys.argv) == 2:
+		word = sys.argv[1]
+		xmls = urllib.urlopen('http://dict.cn/ws.php?utf8=true&q=' + urllib.quote(word)).read()
+		#print re.search(r'(?P.*?)', xmls, re.M|re.I|re.S|re.U).group('test')
+		print xmls[xmls.find("<def>")+5 : xmls.find("</def>")]
+	else:
+		help()
+
+def help():
+	print 'usage:dict [word]'
+
+if __name__ == '__main__':
+	main()

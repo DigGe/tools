@@ -1,0 +1,542 @@
+#!/usr/bin/perl -W
+
+use strict;
+use Glib qw/TRUE FALSE/;
+use Gtk2 '-init';
+use Gtk2::SimpleList;
+use Gtk2::SimpleMenu;
+
+#----GLOBALS----#
+my $global_name="procice GUI";
+my $global_version="1";
+my $global_process_id=0; #set it to zero to catch illegal kills
+my $global_cmd='';
+my $global_owner='';
+my @gsc_array=('ps -U $USER -o user,pid,comm,vsz,rss,ni,s,%cpu,%mem,bsdstart,tname,cmd|',#USER (default)
+			   'ps -eo user,pid,comm,vsz,rss,ni,s,%cpu,%mem,bsdstart,tname,cmd|',#All processes 
+			   'ps -e r -o user,pid,comm,vsz,rss,ni,s,%cpu,%mem,bsdstart,tname,cmd|');#All running processes
+my $gsc_int=0;
+my $global_system_call=$gsc_array[$gsc_int];
+my $global_kill_warning=TRUE;
+my $global_user = readpipe('echo $USER');
+chomp($global_user);
+my $global_signal = '-TERM';
+#---------------#
+
+#----WINDOW: $window----#
+my $window = Gtk2::Window->new('toplevel');
+$window->set_title($global_name);
+$window->set_default_size (800, 600);
+$window->set_position('center');
+$window->signal_connect(delete_event => \&delete_event);
+$window->set_border_width(6);
+#-----------------------#
+
+#----BOX: $box1----#
+my $box1 = Gtk2::VBox->new;
+$window->add($box1);
+#------------------#
+
+#----SCROLLED WINDOW: $scwin----#
+my $scwin = Gtk2::ScrolledWindow->new;
+$scwin->set_policy (qw/automatic automatic/);	
+#-------------------------------#
+
+#----SimpleList: $slist----#
+my $slist = Gtk2::SimpleList->new (
+	'user'	=> 'text',
+	'pid'    => 'int',
+	'comm'    => 'text',
+	'vsz (KB)'    => 'int',
+	'rss (KB)'    => 'int',
+	'ni'    => 'int',
+	's'    => 'text',
+	'%cpu'  => 'text',
+	'%mem'    => 'text',
+	'bsdstart' => 'text',
+	'tname'    => 'text',
+	'args'	=> 'text',
+	);
+
+&populate_list($slist);
+
+$slist->set('enable-grid-lines','both');
+foreach my $column ($slist->get_columns) { 
+	$column->set (resizable => TRUE, 
+				  reorderable => TRUE); 
+	} 
+
+#Make columns sortable reset IDs
+my @columns = $slist->get_columns;
+$columns[0]->set_sort_column_id(0);
+$columns[1]->set_sort_column_id(1);
+$columns[2]->set_sort_column_id(2);
+$columns[3]->set_sort_column_id(3);
+$columns[4]->set_sort_column_id(4);
+$columns[5]->set_sort_column_id(5);
+
+$slist -> get_selection() -> signal_connect(changed => \&select_process);
+$slist->signal_connect (row_activated => \&kill_process);  # double click event
+$scwin->add ($slist);
+#---------------------------#
+
+#-----STAUS BAR: $sbar-----#
+my $sbar = Gtk2::Statusbar->new;
+$sbar->set_has_resize_grip(FALSE);
+&update_status("$global_name $global_version");
+my $sbar_user = Gtk2::Statusbar->new;
+$sbar_user->set_has_resize_grip(FALSE);
+$sbar_user->push(0,"User: $global_user");
+my $sbar_box = Gtk2::HBox->new;
+$sbar_box->set_homogeneous(FALSE);
+#--------------------------#
+
+#----MENU----#
+my $menu_tree = [
+        _File => {
+                item_type => '<Branch>',
+                children => [
+                        _Refresh => {
+                                item_type       => '<StockItem>',
+                                callback        => \&refresh_list,
+                                accelerator     => '<ctrl>P',
+                                extra_data      => 'gtk-new',
+                        },
+						Separator => {
+								item_type => '<Separator>',
+						},
+                        _Quit => {
+                                item_type       => '<StockItem>',
+                                callback        => \&delete_event,
+                                accelerator     => '<ctrl>Q',
+                                extra_data      => 'gtk-quit',
+                        },
+                ],
+        },
+        _Edit => {
+                item_type => '<Branch>',
+                children => [
+                        _Warning => {
+                                item_type       => '<CheckItem>',
+                                callback        => \&set_kill_warning,
+								accelerator     => '<ctrl>K',
+                        },
+						Separator => {
+								item_type => '<Separator>',
+						},
+                        _Kill => {
+                                item_type       => '<StockItem>',
+                                callback        => \&kill_process,
+                                extra_data      => 'gtk-no',
+                        },
+                ],
+        },
+
+        _Processes => {
+                item_type => '<Branch>',
+                children => [
+                       _User => {
+							item_type	=> '<RadioItem>',
+							groupid		=> 1,        
+							callback	=> \&change_global_system_call,
+							callback_data	=> 0,
+							accelerator     => '<ctrl>U',
+			},
+                        _All => { 
+							item_type	=> '<RadioItem>',
+							groupid		=> 1,        
+							callback	=> \&change_global_system_call,
+							callback_data	=> 1,
+							accelerator     => '<ctrl>A',                               
+			},
+                         _Running => {
+							item_type	=> '<RadioItem>',
+							groupid		=> 1,        
+							callback	=> \&change_global_system_call,
+							callback_data => 2,
+							accelerator     => '<ctrl>R',                        
+                        },
+                ],
+        },
+        _Help => {
+                item_type => '<LastBranch>',
+                children => [
+                        _Help => {
+                                item_type       => '<StockItem>',
+								callback	=> \&help,
+                                accelerator     => '<ctrl>H',
+                                extra_data      => 'gtk-help',
+                        },
+						Separator => {
+								item_type => '<Separator>',
+						},
+						_About => {
+                                item_type       => '<StockItem>',
+								callback	=> \&about,
+                                extra_data      => 'gtk-about',
+                        }
+                ],
+        },
+];
+
+my $menu = Gtk2::SimpleMenu->new (
+                menu_tree => $menu_tree,
+				user_data => 'user data',
+        );
+
+
+
+my $menu_box = Gtk2::HBox->new;
+$window->add_accel_group($menu->{accel_group});
+#--------------#
+
+#-----BUTTON: kill_button-----#
+my $kill_button = Gtk2::Button->new_from_stock('gtk-no');
+&find_and_set_label_in ($kill_button->child, "Kill");
+$kill_button->set_sensitive(FALSE);
+$menu->get_widget('/Edit/Kill')->set_sensitive(FALSE);
+$kill_button->signal_connect (clicked => \&kill_process);
+my $button_box = Gtk2::HBox->new;
+$menu->get_widget('/Edit/Warning')->set_active($global_kill_warning);
+
+my $sig_combo = Gtk2::ComboBox->new_text;
+$sig_combo->insert_text (0,'-TERM');
+$sig_combo->insert_text (1,'-HUP');
+$sig_combo->insert_text (2,'-INT');
+$sig_combo->insert_text (3,'-KILL');
+$sig_combo->insert_text (4,'-STOP');
+$sig_combo->insert_text (5,'-CONT');
+$sig_combo->set_active(0);
+$sig_combo->signal_connect (changed => \&set_signal);
+
+my $sig_label = Gtk2::Label->new('signal: ');
+
+#-----------------------------#
+
+#----PACKING----#
+$box1->pack_start($menu_box, FALSE, FALSE, 0);
+$menu_box->pack_start($menu->{widget}, FALSE, FALSE, 0);
+
+$box1->pack_start($scwin,TRUE,TRUE,0);#expand?,fill?,padding
+
+$box1->pack_start($button_box,FALSE, FALSE, 0);
+$button_box->pack_end($kill_button,FALSE,FALSE,0);
+$button_box->pack_end($sig_combo,FALSE,FALSE,0);
+$button_box->pack_end($sig_label,FALSE,FALSE,0);
+
+$box1->pack_start($sbar_box,FALSE, TRUE, 0);
+$sbar_box->pack_start($sbar,TRUE,TRUE,0);
+$sbar_box->pack_start($sbar_user,TRUE,TRUE,0);
+#---------------#
+
+#----show----#
+$window->show_all;
+#------------#
+
+#----Rest in main----#
+Gtk2->main;
+0;
+
+sub populate_list
+{
+	@{$slist->{data}}=();
+	open(PS, $global_system_call);
+	my @lines=<PS>;
+	for($a=1;$a<@lines;$a++)
+	{
+		my($user,$pid,$comm,$vsz,$rss,$s,$cpu,$mem,$bsdstart,$ni,$tname,$args)=split(/\s+/,$lines[$a]);
+  		push @{$slist->{data}}, [ $user,$pid,$comm,$vsz,$rss,$s,$cpu,$mem,$bsdstart,$ni,$tname,$args ];
+	}
+	close(PS);
+}
+
+sub refresh_list
+{
+	&populate_list($slist);
+	&update_status("$global_name $global_version");
+	$global_process_id=0;
+	$global_cmd='';
+	$global_owner='';
+	$kill_button->set_sensitive(FALSE);
+	$menu->get_widget('/Edit/Kill')->set_sensitive(FALSE);
+}
+
+sub change_global_system_call
+{
+	my $call=shift;
+	$gsc_int=$call;
+	$global_system_call=$gsc_array[$gsc_int];
+	&refresh_list;
+}
+
+sub update_status
+{
+	my @text=@_;
+	$sbar->push(0,$text[0]);
+}
+
+sub kill_process
+{
+	if($global_kill_warning==TRUE && $kill_button->is_sensitive==TRUE)
+	{
+		my $dialog = Gtk2::MessageDialog->new ($window,
+                                      'destroy-with-parent',
+                                      'question', # message type
+                                      'yes-no', # which set of buttons?
+                                      "kill $global_signal $global_process_id");
+    	my $response = $dialog->run;
+    	if ($response eq 'yes') {
+			system("kill $global_signal $global_process_id");
+        	&refresh_list;
+    	}
+    	$dialog->destroy;
+	}
+	elsif($global_kill_warning==FALSE && $kill_button->is_sensitive==TRUE)
+	{
+		system("kill $global_process_id");
+		&refresh_list;
+	}
+	else
+	{
+		my $alert = Gtk2::MessageDialog->new ($window,
+											  'destroy-with-parent',
+											  'error',
+											  'ok',
+											  "User '$global_user' does not have permission to kill PID $global_process_id.");
+		$alert->run;
+		$alert->destroy;
+	}
+}
+
+sub select_process
+{
+	my @sel=$slist->get_selected_indices;
+	$global_process_id=$slist->{data}[$sel[0]][1];
+    $global_cmd=$slist->{data}[$sel[0]][2];
+    $global_owner=$slist->{data}[$sel[0]][0];
+    &update_status("$global_process_id $global_cmd");
+    if(($global_owner eq $global_user || $global_user eq 'root') && $global_process_id != 1)
+    {
+		$kill_button->set_sensitive(TRUE);
+		$menu->get_widget('/Edit/Kill')->set_sensitive(TRUE);
+	}
+	else
+	{
+		$kill_button->set_sensitive(FALSE);
+		$menu->get_widget('/Edit/Kill')->set_sensitive(FALSE);
+	}
+}
+
+sub help
+{
+	my $help_window = Gtk2::Window->new('toplevel');
+	my $help_box = Gtk2::VBox->new;
+
+	$help_window->add($help_box);
+	$help_window->set_title($global_name . " Help");
+	$help_window->set_default_size (600, 400);
+	$help_window->set_position('center');
+	$help_window->set_border_width(6);
+
+
+	#----SCROLLED WINDOW: $scwin----#
+	my $help_scwin = Gtk2::ScrolledWindow->new;
+	$help_scwin->set_policy (qw/automatic automatic/);
+	#-------------------------------#
+
+	#----TEXTVIEW: $help_view-----#
+	my $help_view_buffer = Gtk2::TextBuffer->new;
+	my $help_view = Gtk2::TextView->new_with_buffer($help_view_buffer);
+	$help_view->set_editable(FALSE);
+	$help_view->set_cursor_visible(FALSE);
+	$help_view->set_wrap_mode('word');
+	$help_view->set_left_margin(10);
+	$help_view->set_right_margin(10);
+
+	my $title_font = Gtk2::Pango::FontDescription->from_string ("20");
+	$title_font->set_weight('bold');
+	my $title2_font = Gtk2::Pango::FontDescription->from_string ("10");
+	$title2_font->set_weight('bold');
+	my $text_font = Gtk2::Pango::FontDescription->from_string ("10");	
+	my $code_font = Gtk2::Pango::FontDescription->from_string ("monospace 9");
+
+	my $line_num=0;
+	
+	my $title_tag=$help_view_buffer->create_tag('title',font_desc=>$title_font);
+	$title_tag->set('foreground','#000066');
+	my $title2_tag=$help_view_buffer->create_tag('title2',font_desc=>$title2_font);
+	$title2_tag->set('background','#000066');
+	$title2_tag->set('foreground','white');
+	my $text_tag=$help_view_buffer->create_tag('text',font_desc=>$text_font);
+	$text_tag->set('left-margin',20);
+	my $code_tag=$help_view_buffer->create_tag('code',font_desc=>$code_font);
+	$code_tag->set('left-margin',20);
+
+	&write_text("$global_name $global_version\n\n",$help_view_buffer,$line_num,$title_tag);
+	$line_num+=2;
+	&write_text("What is $global_name $global_version?\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("Written in Perl using the Gtk2-perl libraries as a fast and simple GUI for the Linux Procps commands 'ps' and 'kill'.\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+
+	&write_text("File/Refresh <Ctrl+P>\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("Refresh recalls the current 'ps' command and repopulates the process list.\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+	&write_text("File/Quit <Ctrl+Q>\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("Quit :-)\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+	&write_text("Edit/Warning <Ctrl+K>\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("When 'Warning' is on (ticked) a dialog will pop up every time you try to 'kill' a process. " .
+				"When 'Warning' is off 'kill' commands will execute immediately. The status of 'Warning' " .
+				"can be seen by the colour of the kill icon in the kill button (bottom-right of the main window), or in the menu, ".
+				"red indicating warning 'on', and green warning 'off'\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+	&write_text("Edit/Kill <Enter> <Dbl-Click>\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("Call to 'kill' on the selected process:\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+	&write_text("kill <SIGNAL> <SELECTED_PID>.\n\n",$help_view_buffer,$line_num,$code_tag);
+	$line_num+=2;	
+	&write_text("<SIGNAL> can be -TERM, -HUP, -INT, -KILL, -STOP or -CONT, and its value can be set in the ComboBox at the bottom-right of the main window.\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;	
+	&write_text("Processes/User <Ctrl+U>\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("Call 'ps' and retrieve all the current user's processes:\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+	&write_text("ps -U \$USER -o user,pid,comm,vsz,rss,ni,s,%cpu,%mem,bsdstart,tname,cmd\n\n",$help_view_buffer,$line_num,$code_tag);
+	$line_num+=2;
+	&write_text("Processes/All <Ctrl+A>\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("Call 'ps' and retrieve all the current processes on the system:\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+	&write_text("ps -eo user,pid,comm,vsz,rss,ni,s,%cpu,%mem,bsdstart,tname,cmd\n\n",$help_view_buffer,$line_num,$code_tag);
+	$line_num+=2;
+	&write_text("Processes/Running <Ctrl+R>\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("Call 'ps' and retrieve all the currently running processes on the system:\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+	&write_text("ps -e r -o user,pid,comm,vsz,rss,ni,s,%cpu,%mem,bsdstart,tname,cmd\n\n",$help_view_buffer,$line_num,$code_tag);
+	$line_num+=2;
+	&write_text("Help/Help <Ctrl+H>\n\n",$help_view_buffer,$line_num,$title2_tag);
+	$line_num+=2;
+	&write_text("This miserly document.\n\n",$help_view_buffer,$line_num,$text_tag);
+	$line_num+=2;
+
+
+	
+	$help_scwin->add($help_view);
+	#-----------------------------#
+
+	$help_box->pack_start($help_scwin,TRUE,TRUE,0);#expand?,fill?,padding
+	#$label_box->pack_start($help_box,FALSE,FALSE,0);
+	$help_window->show_all;
+}
+
+sub about
+{
+	my $dialog = Gtk2::AboutDialog->new;
+	$dialog->set_position('center');
+	$dialog->set_authors('Brendan Slater');
+	$dialog->set_website('http://procicegui.sourceforge.net/');
+	$dialog->set_copyright("Copyright (c) 2008\nBrendan Slater\nAll rights reserved.");
+	$dialog->set_program_name("$global_name $global_version");
+	$dialog->set_comments("A fast and simple GUI for 'ps' and 'kill'.");	
+	$dialog->set_license("This program is free software: you can redistribute it and/or modify ".
+						 "it under the terms of the GNU General Public License as published by ".
+						 "the Free Software Foundation, either version 3 of the License, or ".
+						 "(at your option) any later version.\n\n".
+						 "This program is distributed in the hope that it will be useful, ".
+						 "but WITHOUT ANY WARRANTY; without even the implied warranty of ".
+						 "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the ".
+						 "GNU General Public License for more details.\n\n".
+						 "You should have received a copy of the GNU General Public License ".
+						 "along with this program.  If not, see <http://www.gnu.org/licenses/>.");	
+	$dialog->set('wrap_license',TRUE);
+	$dialog->run;
+	$dialog->destroy;
+}
+
+sub set_kill_warning
+{
+	my $tmp_bool = $menu->get_widget('/Edit/Warning')->get_active;
+	if($tmp_bool==FALSE)
+	{
+		#print "R U Sure?\n";
+		my $dialog = Gtk2::MessageDialog->new ($window,
+                                      'destroy-with-parent',
+                                      'question', # message type
+                                      'yes-no', # which set of buttons?
+                                      "Are you sure you want to turn off the 'kill warning'?\n\n" 
+									  ."Turning it off will force the 'kill' command to execute immediately.");
+    	my $response = $dialog->run;
+    	if ($response eq 'yes') {
+			$global_kill_warning=$tmp_bool;
+			$kill_button->set_label('gtk-yes');
+			&find_and_set_label_in($kill_button,'Kill');
+			#$menu->get_widget('/Edit/Kill')->drag_source_set_icon_stock('gtk-yes');
+			$menu->get_widget('/Edit/Kill')->set_image(Gtk2::Image->new_from_stock('gtk-yes','menu'));
+
+			#$sbar_kill->push(0,"Kill Warning: OFF");
+			#&update_status($tmp_msg, $global_kill_warning);
+    	}
+		else
+		{
+			$menu->get_widget('/Edit/Warning')->set_active(TRUE);
+		}
+    	$dialog->destroy;
+	}
+	else
+	{
+		$global_kill_warning=$tmp_bool;
+		$kill_button->set_label('gtk-no');
+		&find_and_set_label_in($kill_button,'Kill');
+		$menu->get_widget('/Edit/Kill')->set_image(Gtk2::Image->new_from_stock('gtk-no','menu'));
+	}
+}
+
+sub write_text
+{
+	my($text,$buffer,$line,$tag) = @_;
+	$buffer->insert_at_cursor($text);
+	my $sstart = $buffer->get_iter_at_line($line++);
+    my $ssend = $buffer->get_iter_at_line($line);
+    $buffer->apply_tag ($tag, $sstart, $ssend);
+}
+
+sub set_signal
+{
+	$global_signal=$sig_combo->get_active_text;
+}
+
+sub find_and_set_label_in
+{
+	my ($widget, $text) = @_;
+	#print "@_\n";
+	if ($widget->isa (Gtk2::Container::))
+	{
+     	$widget->foreach (sub { find_and_set_label_in ($_[0], $text); });
+    }
+    elsif ($widget->isa (Gtk2::Label::))
+    {
+     	$widget->set_text ($text);
+   	}
+
+}
+
+sub callback
+{
+	my (@data) = @_;
+    my $data0 = @data->get_selected_indices;
+}
+
+sub delete_event
+{
+#	open(DUMP,">>dump");
+#	print DUMP "$_ => $INC{$_}\n" for sort keys %INC;
+#	close(DUMP);
+	Gtk2->main_quit;
+	return FALSE;
+}

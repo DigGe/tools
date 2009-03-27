@@ -1,0 +1,10 @@
+gconftool-2 -s /desktop/hildon/marquee/hide --type=bool true
+gconftool-2 -s /desktop/hildon/homeplugin/homepage --type=string "flash_home.html"
+gconftool-2 -s /desktop/hildon/homeplugin/custom/moviename --type=string "main.swf"
+gconftool-2 -s /desktop/hildon/homeplugin/eventnames --type=list --list-type=string [wifi,battery,3G,sound,bluetooth]
+gconftool-2 -s /desktop/hildon/dynamic_containers/names --type=list --list-type=string [marquee.conf]
+gconftool-2 -s /desktop/hildon/dynamic_containers/behavior --type=bool true
+
+gconftool-2 -s /desktop/hildon/htmlhomeplugin/homepage --type=string "flash_home.html"
+gconftool-2 -s /desktop/hildon/htmlhomeplugin/flashmoviename --type=string "main.swf"
+

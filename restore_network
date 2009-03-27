@@ -1,0 +1,2 @@
+sudo route del default metric 0 br0
+sudo route del -net 10.131.36.0/24 eth0

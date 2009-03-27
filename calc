@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if [ "$1" == "" ]; then
+	echo Usage:
+	echo "    `basename $0` [scale] expr"
+	exit 0
+fi
+
+scale=4
+
+if [ "$2" != "" ]; then
+	scale=$1
+	shift 1
+fi
+
+scale='scale='$scale';'
+math=${scale}$@
+echo $math | bc

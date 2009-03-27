@@ -1,0 +1,10 @@
+#!/bin/bash
+for file in `find -type f `
+do
+	grep "$1" $file
+	if [ $? -eq 0 ]
+	then
+		echo $file
+	fi
+done
+

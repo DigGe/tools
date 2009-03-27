@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ -z "$1" ]
+then
+	echo "`basename $0` <device_id>"
+	exit -1
+fi
+
+for p in `dbus-send --system --print-reply --dest=fi.epitest.hostap.WPASupplicant /fi/epitest/hostap/WPASupplicant/Interfaces/$1 fi.epitest.hostap.WPASupplicant.Interface.scanResults | grep object | cut -d\" -f2` ; do wpa_getssid $p ; done
+

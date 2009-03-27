@@ -1,0 +1,3 @@
+for dev in `mount | /bin/grep sdb | cut -d\  -f1` ; do umount $dev ; done
+
+sync

@@ -1,0 +1,1 @@
+wc -l `find | /bin/grep -E "\.c$"`

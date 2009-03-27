@@ -1,0 +1,3 @@
+/bin/bash
+
+tar cf /mytmp/samba.bak/public.tar Dig/

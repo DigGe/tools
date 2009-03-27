@@ -1,0 +1,3 @@
+#!/bin/bash
+
+dbus-send --print-reply --system --type=method_call --dest=org.moblin.connman / org.moblin.connman.Manager.SetAircraftMode int32:1

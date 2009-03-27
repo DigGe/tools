@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ -z "$2" ] ; then
+	gksu VBoxAddIF $1 dig br0
+else
+	gksu VBoxAddIF $2 dig br0
+fi

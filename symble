@@ -1,0 +1,18 @@
+#!/bin/bash
+if [ -z "$1" ] || [ -z "$2" ] ; then
+	echo "Usage: $0 {process} {symbol-file}"
+	exit 1
+fi
+
+FILE=$2
+PROCESS=$1
+MAPS=`grep $FILE /proc/\`pidof $PROCESS\`/maps | head -n1 | awk '{print $1, $6}'`
+#grep $FILE /proc/`pidof $PROCESS`/maps | head -n1 
+echo $MAPS
+
+OFFSET=`objdump -h \`echo $MAPS | awk '{print $2}'\` | grep .text | awk '{print $6}'`
+
+echo $OFFSET
+
+#expr 0x`echo $MAPS | cut -d\- -f1` + 0x$OFFSET
+

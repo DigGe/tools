@@ -1,0 +1,3 @@
+rm /var/lib/moblin-image-creaotr/projects.bak -r
+mv /var/lib/moblin-image-creator/projects /var/lib/moblin-image-creator/projects.bak
+cp /usr/share/pdk/projects /var/lib/moblin-image-creator/projects -r

@@ -1,0 +1,33 @@
+#!/bin/sh
+
+#filelist='find /root/bin'
+#. $filelist
+#echo $filelist
+
+directory=`pwd`
+
+if [ 2 -eq $# ]
+then
+	directory=$1
+	fstring=$2
+elif [ 1 -eq $# ]
+then
+	fstring=$1
+else
+	echo "usage:"
+	echo "\t$0 [directory] string"
+	exit 0 
+fi
+
+for file in $(find $directory -type f -name '*')
+do
+	temp=`head -c 100 "$file" | grep "$fstring"`
+	if [ -n $temp ] 
+	then
+		echo $file
+	fi
+	#strings -f $file | grep "$fstring" | awk -F':' '{print $1}'
+done
+
+exit 0;
+

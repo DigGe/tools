@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ -z $2 ]; then 
+	gksu VBoxDeleteIF $1
+else
+	gksu VBoxDeleteIF $2
+fi

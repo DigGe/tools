@@ -1,0 +1,42 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+	echo $0 {keyword}
+	exit 0
+fi
+
+INCLUDE_DIR="/usr/include /usr/local/include"
+#INCLUDE_DIR="/usr/include"
+
+keyword="$1"
+TMPFILE=/tmp/tmp.$$
+
+function do_awk
+{
+	awk \
+		'BEGIN {l=0; getline} NR=='$2' \
+		{ do { printf("%d: %s\n", NR, $0); \
+		if(match($0, "{") != 0) { l++; } \
+		if(match($0, "}") != 0) { l--; } \
+		} while(getline==1 && l>0) }' \
+		$1
+
+#rm -f $TMPFILE;
+exit 0;
+}
+
+for i in $INCLUDE_DIR ; do
+	grep -n -m 1 "struct.*$keyword" $(find $i -maxdepth 1) > $TMPFILE
+	file=`cut -d":" -f1 $TMPFILE`
+	line=`cut -d":" -f2 $TMPFILE`
+	if [ -z "$line" ] ; then
+		continue;
+	else
+		do_awk $file $line
+	fi
+
+done;
+
+rm -f $TMPFILE
+
+

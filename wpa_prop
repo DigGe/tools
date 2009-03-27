@@ -1,0 +1,11 @@
+#!/bin/bash
+
+MAC=$1
+
+if [ -z "$MAC" ] ; then
+	echo "Usage :  $0 xxxxxxxxxxxx"
+else
+	echo dbus-send --system --print-reply --dest=fi.epitest.hostap.WPASupplicant /fi/epitest/hostap/WPASupplicant/Interfaces/0/BSSIDs/$MAC fi.epitest.hostap.WPASupplicant.BSSID.properties
+fi
+
+

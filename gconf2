@@ -1,0 +1,2 @@
+gconftool-2 -s /desktop/hildon/htmlhomeplugin/homepage --type=string "flash_home.html"
+gconftool-2 -s /desktop/hildon/htmlhomeplugin/flashmoviename --type=string "main.swf"

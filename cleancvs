@@ -1,0 +1,29 @@
+#!/bin/bash
+
+make clean
+
+PWD=`pwd`
+
+function clean_file
+{
+	cd $dir
+	for name in `cat ./.cvsignore` ;
+	do 
+		#rm -fr `find -name "$name"`;
+		rm -fr "$name";
+	done;
+}
+
+
+for dir in `find "$PWD"` ; 
+do
+	if [ -d $dir ] ; then
+		echo $dir
+		if [ -f $dir/.cvsignore ] ; then
+
+			clean_file $dir
+		fi
+		
+	fi
+done;
+

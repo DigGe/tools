@@ -1,0 +1,6 @@
+#!/bin/bash
+
+gksu ifconfig tap0 up
+gksu brctl addif br0 tap0
+
+

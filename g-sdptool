@@ -1,0 +1,11 @@
+#!/bin/sh
+
+dest=$1
+
+if [ -z $dest ]
+then
+	dest="local"
+fi
+
+sdptool browse $dest | grep -E '^Browsing|^Service\ Name|Channel'
+

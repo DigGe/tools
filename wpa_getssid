@@ -1,0 +1,48 @@
+#!/usr/bin/python
+
+import sys
+import os
+import dbus
+
+WPAS_DBUS_SERVICE = "fi.epitest.hostap.WPASupplicant"
+WPAS_DBUS_BSSID_INTERFACE = "fi.epitest.hostap.WPASupplicant.BSSID"
+
+if len(sys.argv) != 2:
+	print "Usage: " + sys.argv[0] + " <ssid_string>"
+	os._exit(1)
+
+def get_ssid(ssid):
+	import urllib
+	r = ""
+	for c in ssid:
+		if c >= 32 and c < 127:
+			r += "%c" % c
+		else:
+			r += urllib.quote(chr(c))
+	return r
+
+bus = dbus.SystemBus()
+obj = bus.get_object(WPAS_DBUS_SERVICE, sys.argv[1])
+net = dbus.Interface(obj, WPAS_DBUS_BSSID_INTERFACE)
+props = net.properties()
+bssid = ""
+for item in props["bssid"]:
+	bssid = bssid + ":%02x" % item
+bssid = bssid[1:]
+ssid = get_ssid(props["ssid"])
+wpa = "no"
+if props.has_key("wpaie"):
+	wpa = "yes"
+wpa2 = "no"
+if props.has_key("rsnie"):
+	wpa2 = "yes"
+freq = 0
+if props.has_key("frequency"):
+	freq = props["frequency"]
+caps = props["capabilities"]
+qual = props["quality"]
+level = props["level"]
+noise = props["noise"]
+maxrate = props["maxrate"] / 1000000
+
+print "%s(%s): wpa=%s wpa2=%s quality=%d%% rate=%dMbps freq=%dMHz" % (ssid, bssid, wpa, wpa2, qual, maxrate, freq)

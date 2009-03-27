@@ -1,0 +1,2 @@
+#!/bin/bash
+gksu brctl delif br0 tap0
