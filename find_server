@@ -1,0 +1,3 @@
+#!/bin/bash
+
+a=1; while [ $a -le 255 ]; do ping -c1 -w1 -W1 -i1 10.131.34.$a > /dev/null ; if [ $? -eq 0 ]; then echo 10.131.34.$a alive ; fi; let a=a+1 ; done
