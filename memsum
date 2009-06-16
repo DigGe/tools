@@ -1,0 +1,12 @@
+#!/bin/bash
+
+mem=`cat /proc/meminfo | grep MemTotal | awk '{print $2}'`
+a=`cat /proc/meminfo | grep MemTotal | awk '{print $3}'`
+e=0
+for num in `sudo ps --no-headers xao %mem`
+do
+	e=`calc $e+$num`
+done
+
+echo Total Usage: `calc 2 $e*$mem/100` / $mem kB \($e%\)
+
