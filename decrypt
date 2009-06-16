@@ -1,0 +1,18 @@
+#!/bin/bash
+
+str=$1
+
+if [[ $str == "" ]]
+then
+	echo -n "Enter encrypted string: "
+	read str
+fi
+
+ostr=`dc -e $str 2>/dev/null`
+if [ $? -ne 0 ] || [[ $ostr == "" ]] 
+then
+	echo "Errot: Invaild argument"
+else
+	echo $ostr
+fi
+
