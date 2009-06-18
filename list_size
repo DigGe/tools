@@ -1,0 +1,26 @@
+#!/bin/bash
+
+DIR=`pwd`
+ARGS="-h"
+
+if [[ $1 == "-h" ]] || [[ $1 == "--help" ]]
+then
+	echo "$0 [[ARGS] DIR]"
+	exit 0
+fi
+
+if [[ $2 != "" ]]
+then
+	DIR=$2
+	ARGS=$1
+elif [[ $1 != "" ]]
+then
+	DIR=$1
+fi
+
+for file in `ls $DIR`
+do
+	du -s $ARGS $file
+done
+du -s $ARGS $DIR
+
