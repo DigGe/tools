@@ -1,0 +1,11 @@
+#!/bin/bash
+
+P=`pwd`
+for file in `ls`
+do
+	cd $P/$file
+	git pull
+done
+
+cd ..
+
