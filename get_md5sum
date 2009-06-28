@@ -1,0 +1,39 @@
+#!/bin/bash
+
+function CALC_MD5()
+{
+	if [[ "$1" != "" ]]
+	then
+		md5sum "$1" > "$1".md5sum
+	fi
+}
+
+function CALC_ALL_MD5()
+{
+	for FILE in `ls`
+	do
+		if [[ -f "$FILE" ]]
+		then
+			CALC_MD5 "$FILE"
+		fi
+	done
+}
+
+
+if [[ "$1" != "" ]] && [[ -f "$1" ]]
+then
+	DIRNAME=`dirname "$1"`
+	BASENAME=`basename "$1"`
+	cd "$DIRNAME"
+	CALC_MD5 "$BASENAME"
+	cd - > /dev/null
+	exit 0
+elif [[ "$1" != "" ]] && [[ -d "$1" ]]
+then
+	cd "$1"
+	CALC_ALL_MD5
+	cd - > /dev/null
+else
+	CALC_ALL_MD5
+fi
+
