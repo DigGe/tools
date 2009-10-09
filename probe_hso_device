@@ -1,0 +1,7 @@
+#!/bin/bash
+
+for file in `find /sys/class/tty/ | /bin/grep ttyHS`
+do
+	echo -n "`basename \"$file\"`: "
+	cat "$file/hsotype"
+done

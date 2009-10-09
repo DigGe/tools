@@ -1,11 +1,15 @@
 #!/bin/bash
 
-P=`pwd`
-for file in `ls`
+DIR=`pwd`
+for file in `find -name .git`
 do
-	cd $P/$file
+	REPO="$DIR/""`dirname "$file"`"
+	echo "======= update $REPO ======="
+	cd "$REPO"
 	git pull
 done
 
-cd ..
+cd $DIR
+
+echo all done
 

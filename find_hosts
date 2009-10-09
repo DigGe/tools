@@ -1,0 +1,21 @@
+#!/bin/bash
+
+IP_PREFIX=10.131.36.
+
+ip_suffix=1
+while [ $ip_suffix -le 255 ]
+do
+	#ping -c1 -w1 -W1 -i1 $IP_PREFIX$ip_suffix > /dev/null
+	#if [ $? -eq 0 ]
+	#then
+	#	echo $IP_PREFIX$ip_suffix alive
+	#fi
+
+	RET="`nslookup $IP_PREFIX$ip_suffix | grep name | cut -d= -f 2`"
+	if [[ $RET != "" ]]
+	then
+		echo "$IP_PREFIX$ip_suffix : $RET"
+	fi
+	let ip_suffix=ip_suffix+1
+done
+

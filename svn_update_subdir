@@ -1,0 +1,5 @@
+#!/bin/bash
+
+PREFIX=`pwd`
+find $PREFIX -mindepth 1 -maxdepth 1 -type d -execdir /bin/bash -c 'echo "{}" | grep -E "(out)|(.svn)" >&/dev/null; if [ $? -eq 1 ]; then echo -n "udpating \"{}\"... " ; svn up "{}" >&/dev/null ; if [ $? -eq 0 ]; then echo done ; else echo Fail; fi; fi' \;
+
