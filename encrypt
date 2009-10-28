@@ -6,5 +6,6 @@ if len(sys.argv) != 2:
 else:
 	str = sys.argv[1]
 
-print "%dP" %(reduce(lambda a,b:a*256+ord(b), str, 0))
+#print "%dP" %(reduce(lambda a,b:a*256+ord(b), str, 0))
+print "%dP" %(reduce(lambda a,b:(a<<8)+ord(b), str, 0))
 

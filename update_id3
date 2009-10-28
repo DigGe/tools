@@ -1,0 +1,14 @@
+#!/bin/bash
+
+TMP_FILE=/tmp/pl
+
+find -name '*.mp3' > $TMP_FILE
+
+i=1
+while [ $i -le `wc -l /tmp/pl | cut -d\  -f1` ]
+do
+    mid3iconv -e gbk "`head -n$i $TMP_FILE | tail -n1`"
+    let i=$i+1
+done
+
+

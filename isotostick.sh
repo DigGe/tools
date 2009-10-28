@@ -39,18 +39,20 @@ exitclean() {
 getdisk() {
     DEV=$1
 
-    p=$(udevinfo -q path -n $DEV)
-    if [ -e /sys/$p/device ]; then
-	device=$(basename /sys/$p)
-    else
-	device=$(basename $(readlink -f /sys/$p/../))
-    fi
-    if [ ! -e /sys/block/$device -o ! -e /dev/$device ]; then
-	echo "Error finding block device of $DEV.  Aborting!"
-	exitclean
-    fi
+    #p=$(udevinfo -q path -n $DEV)
+    #if [ -e /sys/$p/device ]; then
+	#device=$(basename /sys/$p)
+    #else
+	#device=$(basename $(readlink -f /sys/$p/../))
+    #fi
+    #if [ ! -e /sys/block/$device -o ! -e /dev/$device ]; then
+	#echo "Error finding block device of $DEV.  Aborting!"
+	#exitclean
+    #fi
 
-    device="/dev/$device"
+    #device="/dev/$device"
+
+    device="/dev/`basename $DEV`"
 }
 
 resetMBR() {
@@ -59,7 +61,7 @@ resetMBR() {
 }
 
 checkMBR() {
-    getdisk $1
+    getdisk $/dev/`basename $DEV`1
 
     bs=$(mktemp /tmp/bs.XXXXXX)
     dd if=$device of=$bs bs=512 count=1 2>/dev/null || exit 2
@@ -100,20 +102,22 @@ checkPartActive() {
 checkFilesystem() {
     dev=$1
 
-    USBFS=$(/lib/udev/vol_id -t $dev)
-    if [ "$USBFS" != "vfat" -a "$USBFS" != "msdos" -a "$USBFS" != "ext2" -a "$USBFS" != "ext3" ]; then
-	echo "USB filesystem must be vfat or ext[23]"
-	exitclean
-    fi
+    #USBFS=$(/lib/udev/vol_id -t $dev)
+    #if [ "$USBFS" != "vfat" -a "$USBFS" != "msdos" -a "$USBFS" != "ext2" -a "$USBFS" != "ext3" ]; then
+	#echo "USB filesystem must be vfat or ext[23]"
+	#exitclean
+    #fi
 
-    USBLABEL=$(/lib/udev/vol_id -u $dev)
+    USBLABEL=$(ls -l /dev/disk/by-uuid | grep `basename $dev` | awk '{print $8}')
+    echo $USBLABEL
+    #USBLABEL=$(/lib/udev/vol_id -u $dev)
     if [ -n "$USBLABEL" ]; then 
 	USBLABEL="UUID=$USBLABEL" ; 
     else
-	USBLABEL=$(/lib/udev/vol_id -l $dev)
-	if [ -n "$USBLABEL" ]; then 
-	    USBLABEL="LABEL=$USBLABEL" 
-	else
+#	USBLABEL=$(/lib/udev/vol_id -l $dev)
+#	if [ -n "$USBLABEL" ]; then 
+#	    USBLABEL="LABEL=$USBLABEL" 
+#	else
 	    echo "Need to have a filesystem label or UUID for your USB device"
 	    if [ "$USBFS" = "vfat" -o "$USBFS" = "msdos" ]; then
 		echo "Label can be set with /sbin/dosfslabel"
@@ -121,7 +125,7 @@ checkFilesystem() {
 		echo "Label can be set with /sbin/e2label"
 	    fi
 	    exitclean
-	fi
+#	fi
     fi
 }
 
@@ -192,7 +196,8 @@ checkMBR $USBDEV
 CDMNT=$(mktemp -d /media/cdtmp.XXXXXX)
 mount -o loop $ISO $CDMNT || exitclean
 USBMNT=$(mktemp -d /media/usbdev.XXXXXX)
-mount $USBDEV $USBMNT || exitclean
+echo "$USBDEV"1
+mount "$USBDEV"1 $USBMNT || exitclean
 
 trap exitclean SIGINT SIGTERM
 

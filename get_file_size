@@ -1,0 +1,10 @@
+#!/bin/bash
+
+sum=0
+for size in `/usr/bin/du -bs $(find -type f| /bin/grep -v .svn) |awk '{print $1}'`
+do
+    let sum=$sum+size
+done
+
+echo $sum
+

@@ -6,8 +6,10 @@ import sys
 #import re
 
 def main():
-	if len(sys.argv) == 2:
-		word = sys.argv[1]
+	if len(sys.argv) > 1:
+		word = ""
+		for w in sys.argv[1:]:
+			word += w + " "
 		xmls = urllib.urlopen('http://dict.cn/ws.php?utf8=true&q=' + urllib.quote(word)).read()
 		#print re.search(r'(?P.*?)', xmls, re.M|re.I|re.S|re.U).group('test')
 		print xmls[xmls.find("<def>")+5 : xmls.find("</def>")]
